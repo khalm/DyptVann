@@ -165,7 +165,7 @@
 
 <script src="leaflet/leaflet.js"></script>
 <script>
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 
 /* ---------- Tekster ---------- */
 const T = {
@@ -180,7 +180,7 @@ const T = {
     maxD:'Maks dyp',meanD:'Middeldyp',area:'Areal',elev:'Høyde',vol:'Volum',year:'Målt',contour:'Dybdekote her',
     all:'Alle data',offline:'Uten nett – viser lagrede data',fiErr:'Fikk ikke hentet data (ingen dekning?)',
     locErr:'Fant ikke posisjonen din',saved:'Lagret {n} kartfliser offline',tooBig:'Zoom inn mer før du lagrer (for stort område)',
-    cleared:'Offline-kart slettet',lake:'Innsjø',version:'Versjon',
+    cleared:'Offline-kart slettet',timeout:'Tjenesten svarte ikke i tide.',lake:'Innsjø',version:'Versjon',
     seaToggle:'Vis dybde i saltvann',on:'På',off:'Av',seachart:'Sjøkart',sea:'Saltvann',seaSub:'Sjøkart-dybdedata fra Kartverket',
     seaDepth:'Dybde her',seaRange:'Dybdeintervall',shoal:'Grunne / skjær',dry:'Tørrfall',
     wTitle:'Før du drar ut: last ned kart',
@@ -202,7 +202,7 @@ const T = {
     maxD:'Max depth',meanD:'Mean depth',area:'Area',elev:'Elevation',vol:'Volume',year:'Surveyed',contour:'Depth contour here',
     all:'All data',offline:'Offline – showing saved data',fiErr:'Could not fetch data (no coverage?)',
     locErr:'Could not find your location',saved:'Saved {n} map tiles offline',tooBig:'Zoom in more before saving (area too large)',
-    cleared:'Offline maps deleted',lake:'Lake',version:'Version',
+    cleared:'Offline maps deleted',timeout:'The service did not respond in time.',lake:'Lake',version:'Version',
     seaToggle:'Show salt water depth',on:'On',off:'Off',seachart:'Nautical',sea:'Salt water',seaSub:'Nautical depth data from the Norwegian Mapping Authority',
     seaDepth:'Depth here',seaRange:'Depth range',shoal:'Shoal / rock',dry:'Dries at low tide',
     wTitle:'Before you head out: download maps',
@@ -242,43 +242,58 @@ const BASES = {
 let baseKey = store.get('base','topo');
 BASES[baseKey].addTo(map);
 
-/* NVE-tjenesten: prøver begge kjente adresser og finner dybdelagene automatisk */
+/* NVE-tjenesten (ArcGIS REST): finner dybdelagene automatisk */
 const NVE_HOSTS = [
-  'https://nve.geodataonline.no/arcgis/services/Innsjodatabase2/MapServer/WMSServer',
-  'https://gis3.nve.no/map/services/Innsjodatabase2/MapServer/WMSServer'
+  'https://nve.geodataonline.no/arcgis/rest/services/Innsjodatabase2/MapServer',
+  'https://gis3.nve.no/map/rest/services/Innsjodatabase2/MapServer'
 ];
-let wmsUrl = store.get('wmsUrl', NVE_HOSTS[0]);
-let depthLayers = store.get('depthLayers', null);   // lag med dybdekoter/-flater
-let lakeLayers  = store.get('lakeLayers', null);    // innsjø-lag (navn, areal osv.)
+let nveUrl = store.get('nveUrl', NVE_HOSTS[0]);
+let depthIds = store.get('depthIds', [0]);   // 0 = Batymetri (dybdekoter)
 let depth;
 
+// fetch med tidsavbrudd, så appen aldri henger på «Henter…»
+function fetchT(url, ms=12000, opts={}){
+  const c = new AbortController(); const id = setTimeout(()=>c.abort(), ms);
+  return fetch(url,{...opts, signal:c.signal}).finally(()=>clearTimeout(id));
+}
 async function discover(){
   for(const url of NVE_HOSTS){
     try{
-      const r = await fetch(url+'?service=WMS&request=GetCapabilities&version=1.3.0',{cache:'no-store'});
+      const r = await fetchT(url+'?f=json', 10000, {cache:'no-store'});
       if(!r.ok) continue;
-      const xml = new DOMParser().parseFromString(await r.text(),'text/xml');
-      const named = [...xml.querySelectorAll('Layer')].map(l=>({
-        name:l.querySelector(':scope > Name')?.textContent, title:(l.querySelector(':scope > Title')?.textContent||'').toLowerCase(),
-        leaf:!l.querySelector(':scope > Layer')})).filter(l=>l.name && l.leaf);
-      const d = named.filter(l=>/dybde|batymetri|bathym|kote/.test(l.title)).map(l=>l.name);
-      const k = named.filter(l=>/innsj/.test(l.title) && !/kommune|dybde/.test(l.title)).map(l=>l.name);
-      if(d.length){ wmsUrl=url; store.set('nveCors',true); depthLayers=d; lakeLayers=k.length?k:d;
-        store.set('wmsUrl',url); store.set('depthLayers',d); store.set('lakeLayers',lakeLayers); return true; }
+      const j = await r.json();
+      if(!j.layers) continue;
+      const leaf = j.layers.filter(l=>!l.subLayerIds);
+      const d = leaf.filter(l=>/batymetri|bathym|dybdekote|kote/i.test(l.name)).map(l=>l.id);
+      nveUrl = url; store.set('nveUrl',url);
+      if(d.length){ depthIds = d; store.set('depthIds',d); }
+      return true;
     }catch(e){}
   }
   return false;
 }
+// Fliser fra ArcGIS «export»: samme rutenett som bakgrunnskartet
+const ArcTiles = L.TileLayer.extend({
+  getTileUrl(c){
+    const R = 20037508.342789244, s = 2*R/Math.pow(2,c.z), minx = -R + c.x*s, maxy = R - c.y*s;
+    return arcTile(nveUrl, depthIds, minx, maxy-s, minx+s, maxy);
+  }
+});
+function arcTile(url, ids, x1,y1,x2,y2){
+  const q = new URLSearchParams({bbox:[x1,y1,x2,y2].join(','),bboxSR:'3857',imageSR:'3857',size:'256,256',
+    format:'png32',transparent:'true',layers:'show:'+ids.join(','),dpi:'96',f:'image'});
+  return url+'/export?'+q;
+}
 function addDepth(){
+  const was = depth && map.hasLayer(depth);
   if(depth) map.removeLayer(depth);
-  depth = L.tileLayer.wms(wmsUrl,{layers:(depthLayers||['0']).join(','),format:'image/png',transparent:true,
-    version:'1.3.0',opacity:store.get('opacity',90)/100,maxZoom:18,crossOrigin:store.get('nveCors',false),attribution:'Dybdedata © NVE'});
-  if(store.get('depthOn',true)) depth.addTo(map);
+  depth = new ArcTiles('',{opacity:store.get('opacity',90)/100,maxZoom:18,attribution:'Dybdedata © NVE'});
+  if(store.get('depthOn',true) || was) depth.addTo(map);
   document.getElementById('legend').innerHTML =
-    (depthLayers||[]).slice(0,4).map(n=>`<img alt="" src="${wmsUrl}?service=WMS&request=GetLegendGraphic&version=1.3.0&format=image/png&layer=${encodeURIComponent(n)}" onerror="this.remove()">`).join('');
+    `<img alt="" src="${nveUrl}/legend?f=image" onerror="this.remove()">`;
 }
 addDepth();
-discover().then(ok=>{ if(ok) addDepth(); });
+discover().then(ok=>{ if(ok){ addDepth(); applySea(); } });
 
 /* Saltvann: Kartverkets sjøkart-dybdedata (valgfritt) */
 const SEA_URL = 'https://wms.geonorge.no/skwms1/wms.dybdedata2';
@@ -304,6 +319,17 @@ function showHint(){ body.innerHTML = `<h2>${t('tapHint')}</h2><div class="sub">
 sheet.querySelector('.grab').onclick = ()=>sheet.classList.toggle('open');
 sheet.addEventListener('click',e=>{ if(e.target===sheet) sheet.classList.toggle('open'); });
 
+async function identify(latlng){
+  const b = map.getBounds(), size = map.getSize();
+  const q = new URLSearchParams({geometry:`${latlng.lng},${latlng.lat}`,geometryType:'esriGeometryPoint',sr:'4326',
+    layers:'all',tolerance:'4',mapExtent:[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()].join(','),
+    imageDisplay:`${size.x},${size.y},96`,returnGeometry:'false',f:'json'});
+  const r = await fetchT(nveUrl+'/identify?'+q);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const j = await r.json();
+  if(j.error) throw new Error(j.error.message||'NVE-feil');
+  return (j.results||[]).map(x=>({...x.attributes, _type:x.layerName}));
+}
 function featureInfo(latlng, layers, url=null, fmt='text/xml'){
   const size = map.getSize(), b = map.getBounds(), crs = map.options.crs;
   const sw = crs.project(b.getSouthWest()), ne = crs.project(b.getNorthEast());
@@ -311,7 +337,7 @@ function featureInfo(latlng, layers, url=null, fmt='text/xml'){
   const q = new URLSearchParams({service:'WMS',version:'1.3.0',request:'GetFeatureInfo',layers:layers.join(','),
     query_layers:layers.join(','),styles:'',crs:'EPSG:3857',bbox:[sw.x,sw.y,ne.x,ne.y].join(','),
     width:size.x,height:size.y,i:p.x,j:p.y,info_format:fmt,feature_count:10,format:'image/png'});
-  return fetch((url||wmsUrl)+'?'+q).then(r=>r.text()).then(txt=>{
+  return fetchT((url||SEA_URL)+'?'+q).then(r=>r.text()).then(txt=>{
     const xml = new DOMParser().parseFromString(txt,'text/xml');
     if(fmt==='text/xml')
       return [...xml.querySelectorAll('FIELDS')].map(f=>Object.fromEntries([...f.attributes].map(a=>[a.name,a.value])));
@@ -340,19 +366,19 @@ async function onTap(e){
   marker = L.circleMarker(e.latlng,{radius:7,color:'#fff',weight:2,fillColor:'#0b6fa4',fillOpacity:1}).addTo(map);
   body.innerHTML = `<h2>${t('loading')}</h2>`;
   try{
-    const ls = [...new Set([...(lakeLayers||[]),...(depthLayers||[])])];
     if(!navigator.onLine) throw new Error('offline');
-    let feats = [], kind = 'lake';
-    try{ feats = await featureInfo(e.latlng, ls.length?ls:['0']); }catch{}
+    let feats = [], kind = 'lake', nveErr = null;
+    try{ feats = await identify(e.latlng); }catch(err){ nveErr = err; }
     if(!feats.length && seaOn){
       feats = await featureInfo(e.latlng, SEA_INFO_LAYERS, SEA_URL, 'application/vnd.ogc.gml');
       kind = 'sea';
     }
+    if(!feats.length && nveErr) throw nveErr;
     lastInfo = {feats, latlng:e.latlng, kind};
     store.set('lastInfo', lastInfo);
     renderInfo(lastInfo);
   }catch(err){
-    body.innerHTML = `<h2 class="warn">${t('fiErr')}</h2>`;
+    body.innerHTML = `<h2 class="warn">${t('fiErr')}</h2><div class="note">${escapeHtml(err && err.name==='AbortError' ? t('timeout') : (err && err.message) || '')}</div>`;
   }
 }
 map.on('click', onTap);
@@ -367,7 +393,7 @@ function renderInfo({feats,latlng,kind}){
   const elev  = num(pick(feats,/h(ø|o|oe)yde|moh|elev/i));
   const vol   = num(pick(feats,/volum/i));
   const year  = pick(feats,/(m(å|aa|a)le).*(år|aar|ar)|year|dato/i);
-  const contour = num(pick(feats,/^(dybde|dyp|depth|kote|hoyde|høyde)(_?m)?$/i));
+  const contour = num(pick(feats.filter(f=>/batymetri|bathym|kote|kontur/i.test(f._type||'')),/dybde|dyp|depth|kote/i));
   const lakeNo = pick(feats,/l(ø|o)penr|vatnlnr|innsjo.?nr/i);
   const hasDepth = maxD!=null || meanD!=null || contour!=null;
   const fmt = (v,u,d=1)=> v==null?'–':`${v.toLocaleString(lang==='no'?'nb-NO':'en-GB',{maximumFractionDigits:d})} ${u}`;
@@ -490,7 +516,7 @@ function tilesFor(bounds, zmin, zmax, opts){
     const nw = map.project(bounds.getNorthWest(),z).divideBy(256).floor(), se = map.project(bounds.getSouthEast(),z).divideBy(256).floor();
     for(let x=nw.x;x<=se.x;x++) for(let y=nw.y;y<=se.y;y++){
       for(const k of opts.bases) urls.push(L.Util.template(BASES[k]._url,{x,y,z,s:'a'}));
-      if(opts.depth && z>=8) urls.push(wmsTile(wmsUrl, depthLayers||['0'], x,y,z));
+      if(opts.depth && z>=8){ const R2=2*R/Math.pow(2,z), x1=-R+x*R2, y2=R-y*R2; urls.push(arcTile(nveUrl, depthIds, x1, y2-R2, x1+R2, y2)); }
       if(opts.sea && z>=8) urls.push(wmsTile(SEA_URL, SEA_LAYERS, x,y,z));
     }
   }
