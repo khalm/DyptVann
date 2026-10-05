@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DyptVann</title>
+<meta name="theme-color" content="#0b3d5c">
+<meta name="description" content="Dybdekart for norske innsjøer og sjø – gratis, med offline-støtte.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="leaflet/leaflet.css">
+<style>
+  :root{
+    --bg:#f4f8fb; --panel:#ffffff; --ink:#0f2533; --muted:#5b7283; --line:#d8e3ea;
+    --accent:#0b6fa4; --accent-ink:#ffffff; --deep:#0b3d5c; --warn:#b4541a;
+    --shadow:0 6px 24px rgba(10,40,60,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b141b; --panel:#13212b; --ink:#e3eef5; --muted:#8fa8b8; --line:#24394a;
+      --accent:#3aa6dd; --accent-ink:#04121b; --deep:#0b3d5c; --shadow:0 6px 24px rgba(0,0,0,.5); }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+  #map{position:fixed;inset:0;background:#cfe0ea}
+  button{font:inherit;color:inherit}
+
+  /* Top bar */
+  .top{position:fixed;left:0;right:0;top:0;z-index:1000;padding:calc(env(safe-area-inset-top) + 10px) 12px 0;
+    display:flex;gap:8px;align-items:flex-start;pointer-events:none}
+  .search{pointer-events:auto;flex:1;position:relative}
+  .search input{width:100%;height:46px;border-radius:23px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:0 16px 0 42px;font-size:16px;box-shadow:var(--shadow);outline:none}
+  .search svg{position:absolute;left:14px;top:13px;width:20px;height:20px;color:var(--muted)}
+  .results{margin-top:6px;background:var(--panel);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;
+    max-height:50vh;overflow-y:auto;display:none}
+  .results button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 16px;
+    border-bottom:1px solid var(--line);cursor:pointer}
+  .results button small{display:block;color:var(--muted)}
+  .round{pointer-events:auto;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);
+    background:var(--panel);box-shadow:var(--shadow);display:grid;place-items:center;cursor:pointer;flex:none}
+  .round svg{width:22px;height:22px}
+
+  /* Side buttons */
+  .fabs{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 96px);z-index:1000;display:flex;flex-direction:column;gap:10px}
+  .round.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+  /* Bottom sheet */
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:1001;background:var(--panel);border-radius:18px 18px 0 0;
+    box-shadow:var(--shadow);padding:10px 16px calc(env(safe-area-inset-bottom) + 14px);
+    transform:translateY(calc(100% - 78px - env(safe-area-inset-bottom)));transition:transform .25s ease;max-height:75vh;overflow-y:auto}
+  .sheet.open{transform:none}
+  .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 8px}
+  .sheet h2{margin:0;font-size:18px}
+  .sub{color:var(--muted);font-size:14px;margin-top:2px}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+  .stat{background:var(--bg);border-radius:12px;padding:10px 12px}
+  .stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+  .stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .note{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.45}
+  .warn{color:var(--warn)}
+  details{margin-top:10px;font-size:13px}
+  details table{width:100%;border-collapse:collapse}
+  details td{padding:4px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  details td:first-child{color:var(--muted);padding-right:10px}
+
+  /* Settings panel */
+  .panel{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.35);display:none}
+  .panel.open{display:block}
+  .panel .card{position:absolute;left:0;right:0;bottom:0;background:var(--panel);border-radius:18px 18px 0 0;
+    padding:16px 16px calc(env(safe-area-inset-bottom) + 18px);max-height:85vh;overflow-y:auto}
+  .card h3{margin:4px 0 12px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .row label{flex:1}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{border:0;background:none;padding:8px 14px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:var(--accent-ink)}
+  input[type=range]{width:140px;accent-color:var(--accent)}
+  .btn{display:block;width:100%;margin-top:12px;border:0;border-radius:12px;padding:13px;background:var(--accent);
+    color:var(--accent-ink);font-weight:600;cursor:pointer}
+  .btn.ghost{background:var(--bg);color:var(--ink)}
+  .legend img{max-width:100%;background:#fff;border-radius:8px;padding:6px}
+  .version{font-size:12px;color:var(--muted);text-align:center;margin-top:14px}
+  .badge{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom) + 92px);z-index:999;background:var(--panel);
+    color:var(--muted);font-size:11px;padding:3px 8px;border-radius:10px;box-shadow:var(--shadow)}
+  .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 70px);transform:translateX(-50%);z-index:1200;
+    background:var(--deep);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;display:none;max-width:90vw;text-align:center}
+  .progress{height:6px;background:var(--bg);border-radius:3px;margin-top:10px;overflow:hidden;display:none}
+  .progress div{height:100%;width:0;background:var(--accent);transition:width .2s}
+  .leaflet-control-attribution{font-size:10px}
+  .leaflet-bottom.leaflet-right{bottom:calc(78px + env(safe-area-inset-bottom))}
+  .me{width:18px;height:18px;border-radius:50%;background:#1a8cff;border:3px solid #fff;box-shadow:0 0 0 6px rgba(26,140,255,.25)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="top">
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" autocomplete="off" data-ph="search">
+    <div class="results" id="results"></div>
+  </div>
+  <button class="round" id="settingsBtn" aria-label="Innstillinger">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+</div>
+
+<div class="fabs">
+  <button class="round on" id="layerBtn" aria-label="Dybdekart">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8c3-3 5 3 8 0s5 3 8 0 4 0 4 0M2 13c3-3 5 3 8 0s5 3 8 0 4 0 4 0M2 18c3-3 5 3 8 0s5 3 8 0 4 0 4 0"/></svg>
+  </button>
+  <button class="round" id="locBtn" aria-label="Min posisjon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+  </button>
+</div>
+
+<div class="badge" id="badge"></div>
+
+<div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <div id="sheetBody"></div>
+</div>
+
+<div class="panel" id="panel">
+  <div class="card">
+    <h3 data-t="settings"></h3>
+    <div class="row"><label data-t="language"></label>
+      <div class="seg" id="langSeg"><button data-l="no">Norsk</button><button data-l="en">English</button></div></div>
+    <div class="row"><label data-t="seaToggle"></label>
+      <div class="seg" id="seaSeg"><button data-s="1" data-t="on"></button><button data-s="0" data-t="off"></button></div></div>
+    <div class="row" style="display:block"><label data-t="basemap"></label>
+      <div class="seg" id="baseSeg" style="margin-top:8px"><button data-b="topo" data-t="topo"></button><button data-b="gray" data-t="gray"></button><button data-b="sea" data-t="seachart"></button><button data-b="photo" data-t="photo"></button></div></div>
+    <div class="row"><label data-t="opacity"></label><input type="range" id="opacity" min="20" max="100" step="5"></div>
+    <div class="row" style="display:block"><label data-t="legend"></label>
+      <div class="legend" id="legend" style="margin-top:8px"></div></div>
+    <button class="btn" id="dlBtn" data-t="download"></button>
+    <div class="note" data-t="downloadNote"></div>
+    <div class="progress" id="prog"><div></div></div>
+    <button class="btn ghost" id="clearBtn" data-t="clear"></button>
+    <div class="note" data-t="about"></div>
+    <button class="btn ghost" id="closePanel" data-t="close"></button>
+    <div class="version" id="ver"></div>
+  </div>
+</div>
+
+<div class="panel" id="welcome">
+  <div class="card">
+    <h3 data-t="wTitle"></h3>
+    <div class="note" style="font-size:15px;color:var(--ink)" data-t="wBody"></div>
+    <div class="note" id="netInfo" style="font-size:15px"></div>
+    <ol class="note" style="font-size:14px;padding-left:20px;margin:10px 0">
+      <li data-t="wStep1"></li><li data-t="wStep2"></li><li data-t="wStep3"></li>
+    </ol>
+    <button class="btn" id="wOverview" data-t="wOverview"></button>
+    <div class="progress" id="wProg"><div></div></div>
+    <button class="btn ghost" id="wClose" data-t="wLater"></button>
+    <div class="version" id="wVer"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="leaflet/leaflet.js"></script>
+<script>
+const VERSION = '1.0.0';
+
+/* ---------- Tekster ---------- */
+const T = {
+  no:{search:'Søk etter innsjø…',settings:'Innstillinger',language:'Språk',basemap:'Bakgrunnskart',topo:'Topo',gray:'Grå',photo:'Flyfoto',
+    opacity:'Synlighet dybdekart',legend:'Tegnforklaring',download:'Lagre synlig område offline',
+    downloadNote:'Lagrer bakgrunnskart og dybdekart for det du ser nå, så det virker uten dekning.',
+    clear:'Slett offline-kart',close:'Lukk',
+    about:'Dybdedata ferskvann: NVE (Innsjødatabasen, ca. 600 dybdekartlagte innsjøer). Dybdedata saltvann, kart og stedsnavn: Kartverket. Alt er gratis og åpne data. Ikke bruk appen til navigasjon.',
+    tapHint:'Trykk på en innsjø for å se dybde',tapSub:'Blå linjer = dybdekoter (meter). Bare innsjøer NVE har målt har dybdekart.',
+    loading:'Henter…',noLake:'Ingen innsjø her',noLakeSub:'Prøv å trykke midt ute på vannet.',
+    noDepth:'Ikke dybdekartlagt',noDepthSub:'NVE har ikke dybdekart for denne innsjøen. Det finnes dessverre ingen andre gratis dybdedata for ferskvann.',
+    maxD:'Maks dyp',meanD:'Middeldyp',area:'Areal',elev:'Høyde',vol:'Volum',year:'Målt',contour:'Dybdekote her',
+    all:'Alle data',offline:'Uten nett – viser lagrede data',fiErr:'Fikk ikke hentet data (ingen dekning?)',
+    locErr:'Fant ikke posisjonen din',saved:'Lagret {n} kartfliser offline',tooBig:'Zoom inn mer før du lagrer (for stort område)',
+    cleared:'Offline-kart slettet',lake:'Innsjø',version:'Versjon',
+    seaToggle:'Vis dybde i saltvann',on:'På',off:'Av',seachart:'Sjøkart',sea:'Saltvann',seaSub:'Sjøkart-dybdedata fra Kartverket',
+    seaDepth:'Dybde her',seaRange:'Dybdeintervall',shoal:'Grunne / skjær',dry:'Tørrfall',
+    wTitle:'Før du drar ut: last ned kart',
+    wBody:'DyptVann virker uten internett, men kartene må lastes ned først. Selve appen er allerede lagret på telefonen nå.',
+    wStep1:'Last ned oversiktskartet nedenfor (anbefales på wifi, ca. 20–40 MB).',
+    wStep2:'Zoom inn på vannet eller fjorden du skal til, åpne menyen og trykk «Lagre synlig område offline».',
+    wStep3:'Gjenta for hvert område. Lagrede områder virker uten dekning.',
+    wOverview:'Last ned oversiktskart for hele Norge',wLater:'Senere',
+    wifi:'Du er på wifi – fint tidspunkt å laste ned.',cell:'⚠️ Du ser ut til å være på mobildata. Vent gjerne til du er på wifi.',
+    dlOverviewDone:'Oversiktskartet er lagret'},
+  en:{search:'Search for a lake…',settings:'Settings',language:'Language',basemap:'Base map',topo:'Topo',gray:'Grey',photo:'Aerial',
+    opacity:'Depth map visibility',legend:'Legend',download:'Save visible area offline',
+    downloadNote:'Saves base map and depth map for the current view so it works without coverage.',
+    clear:'Delete offline maps',close:'Close',
+    about:'Fresh water depth: NVE (Lake database, ~600 surveyed lakes). Salt water depth, maps and place names: Norwegian Mapping Authority. All free, open data. Not for navigation.',
+    tapHint:'Tap a lake to see its depth',tapSub:'Blue lines = depth contours (metres). Only lakes surveyed by NVE have depth maps.',
+    loading:'Loading…',noLake:'No lake here',noLakeSub:'Try tapping out on the water.',
+    noDepth:'Not surveyed',noDepthSub:'NVE has no depth map for this lake. Unfortunately there is no other free depth data for fresh water.',
+    maxD:'Max depth',meanD:'Mean depth',area:'Area',elev:'Elevation',vol:'Volume',year:'Surveyed',contour:'Depth contour here',
+    all:'All data',offline:'Offline – showing saved data',fiErr:'Could not fetch data (no coverage?)',
+    locErr:'Could not find your location',saved:'Saved {n} map tiles offline',tooBig:'Zoom in more before saving (area too large)',
+    cleared:'Offline maps deleted',lake:'Lake',version:'Version',
+    seaToggle:'Show salt water depth',on:'On',off:'Off',seachart:'Nautical',sea:'Salt water',seaSub:'Nautical depth data from the Norwegian Mapping Authority',
+    seaDepth:'Depth here',seaRange:'Depth range',shoal:'Shoal / rock',dry:'Dries at low tide',
+    wTitle:'Before you head out: download maps',
+    wBody:'DyptVann works without internet, but the maps must be downloaded first. The app itself is already saved on your phone.',
+    wStep1:'Download the overview map below (best on Wi-Fi, about 20–40 MB).',
+    wStep2:'Zoom in on the lake or fjord you are going to, open the menu and tap “Save visible area offline”.',
+    wStep3:'Repeat for each area. Saved areas work without coverage.',
+    wOverview:'Download overview map of Norway',wLater:'Later',
+    wifi:'You are on Wi-Fi – a good time to download.',cell:'⚠️ You seem to be on mobile data. Consider waiting for Wi-Fi.',
+    dlOverviewDone:'Overview map saved'}
+};
+const store = {get(k,d){try{const v=localStorage.getItem('dk_'+k);return v===null?d:JSON.parse(v)}catch{return d}},
+               set(k,v){try{localStorage.setItem('dk_'+k,JSON.stringify(v))}catch{}}};
+let lang = store.get('lang', (navigator.language||'no').startsWith('en')?'en':'no');
+const t = k => (T[lang][k] ?? k);
+function applyLang(){
+  document.documentElement.lang = lang==='no'?'no':'en';
+  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));
+  document.getElementById('q').placeholder = t('search');
+  document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.l===lang));
+  document.getElementById('ver').textContent = `${t('version')} ${VERSION}`;
+  document.getElementById('wVer').textContent = `DyptVann · ${t('version')} ${VERSION}`;
+  document.querySelectorAll('#seaSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.s==='1')===seaOn));
+  showNetInfo();
+  document.getElementById('badge').textContent = `DyptVann v${VERSION}`;
+  if(!lastInfo) showHint(); else renderInfo(lastInfo);
+}
+
+/* ---------- Kart ---------- */
+const map = L.map('map',{zoomControl:false,attributionControl:true}).setView(store.get('view',[61.0,10.5]).slice(0,2), store.get('view',[0,0,6])[2]||6);
+const BASES = {
+  topo: L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png',{maxZoom:18,crossOrigin:true,attribution:'© Kartverket'}),
+  gray: L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topograatone/default/webmercator/{z}/{y}/{x}.png',{maxZoom:18,crossOrigin:true,attribution:'© Kartverket'}),
+  sea: L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/sjokartraster/default/webmercator/{z}/{y}/{x}.png',{maxZoom:18,crossOrigin:true,attribution:'© Kartverket'}),
+  photo: L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,crossOrigin:true,attribution:'© Esri, Maxar'})
+};
+let baseKey = store.get('base','topo');
+BASES[baseKey].addTo(map);
+
+/* NVE-tjenesten: prøver begge kjente adresser og finner dybdelagene automatisk */
+const NVE_HOSTS = [
+  'https://nve.geodataonline.no/arcgis/services/Innsjodatabase2/MapServer/WMSServer',
+  'https://gis3.nve.no/map/services/Innsjodatabase2/MapServer/WMSServer'
+];
+let wmsUrl = store.get('wmsUrl', NVE_HOSTS[0]);
+let depthLayers = store.get('depthLayers', null);   // lag med dybdekoter/-flater
+let lakeLayers  = store.get('lakeLayers', null);    // innsjø-lag (navn, areal osv.)
+let depth;
+
+async function discover(){
+  for(const url of NVE_HOSTS){
+    try{
+      const r = await fetch(url+'?service=WMS&request=GetCapabilities&version=1.3.0',{cache:'no-store'});
+      if(!r.ok) continue;
+      const xml = new DOMParser().parseFromString(await r.text(),'text/xml');
+      const named = [...xml.querySelectorAll('Layer')].map(l=>({
+        name:l.querySelector(':scope > Name')?.textContent, title:(l.querySelector(':scope > Title')?.textContent||'').toLowerCase(),
+        leaf:!l.querySelector(':scope > Layer')})).filter(l=>l.name && l.leaf);
+      const d = named.filter(l=>/dybde|batymetri|bathym|kote/.test(l.title)).map(l=>l.name);
+      const k = named.filter(l=>/innsj/.test(l.title) && !/kommune|dybde/.test(l.title)).map(l=>l.name);
+      if(d.length){ wmsUrl=url; store.set('nveCors',true); depthLayers=d; lakeLayers=k.length?k:d;
+        store.set('wmsUrl',url); store.set('depthLayers',d); store.set('lakeLayers',lakeLayers); return true; }
+    }catch(e){}
+  }
+  return false;
+}
+function addDepth(){
+  if(depth) map.removeLayer(depth);
+  depth = L.tileLayer.wms(wmsUrl,{layers:(depthLayers||['0']).join(','),format:'image/png',transparent:true,
+    version:'1.3.0',opacity:store.get('opacity',90)/100,maxZoom:18,crossOrigin:store.get('nveCors',false),attribution:'Dybdedata © NVE'});
+  if(store.get('depthOn',true)) depth.addTo(map);
+  document.getElementById('legend').innerHTML =
+    (depthLayers||[]).slice(0,4).map(n=>`<img alt="" src="${wmsUrl}?service=WMS&request=GetLegendGraphic&version=1.3.0&format=image/png&layer=${encodeURIComponent(n)}" onerror="this.remove()">`).join('');
+}
+addDepth();
+discover().then(ok=>{ if(ok) addDepth(); });
+
+/* Saltvann: Kartverkets sjøkart-dybdedata (valgfritt) */
+const SEA_URL = 'https://wms.geonorge.no/skwms1/wms.dybdedata2';
+const SEA_LAYERS = ['Dybdelag','Dybdekontur','grunne','Torrfall','skjaer_punkt','Dybdepunkt'];
+const SEA_INFO_LAYERS = ['Dybdelag','grunne','Torrfall','skjaer_punkt','Dybdekontur'];
+let seaOn = store.get('seaOn', true);
+const sea = L.tileLayer.wms(SEA_URL,{layers:SEA_LAYERS.join(','),format:'image/png',transparent:true,version:'1.3.0',
+  opacity:store.get('opacity',90)/100,maxZoom:18,crossOrigin:true,attribution:'Sjødybder © Kartverket'});
+function applySea(){
+  const show = seaOn && map.hasLayer(depth);
+  if(show && !map.hasLayer(sea)) sea.addTo(map);
+  if(!show && map.hasLayer(sea)) map.removeLayer(sea);
+  document.querySelectorAll('#seaSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.s==='1')===seaOn));
+}
+applySea();
+
+map.on('moveend',()=>{const c=map.getCenter();store.set('view',[c.lat,c.lng,map.getZoom()])});
+
+/* ---------- Info om innsjø (trykk på kartet) ---------- */
+const sheet = document.getElementById('sheet'), body = document.getElementById('sheetBody');
+let lastInfo = null, marker = null;
+function showHint(){ body.innerHTML = `<h2>${t('tapHint')}</h2><div class="sub">${t('tapSub')}</div>`; }
+sheet.querySelector('.grab').onclick = ()=>sheet.classList.toggle('open');
+sheet.addEventListener('click',e=>{ if(e.target===sheet) sheet.classList.toggle('open'); });
+
+function featureInfo(latlng, layers, url=null, fmt='text/xml'){
+  const size = map.getSize(), b = map.getBounds(), crs = map.options.crs;
+  const sw = crs.project(b.getSouthWest()), ne = crs.project(b.getNorthEast());
+  const p = map.latLngToContainerPoint(latlng).round();
+  const q = new URLSearchParams({service:'WMS',version:'1.3.0',request:'GetFeatureInfo',layers:layers.join(','),
+    query_layers:layers.join(','),styles:'',crs:'EPSG:3857',bbox:[sw.x,sw.y,ne.x,ne.y].join(','),
+    width:size.x,height:size.y,i:p.x,j:p.y,info_format:fmt,feature_count:10,format:'image/png'});
+  return fetch((url||wmsUrl)+'?'+q).then(r=>r.text()).then(txt=>{
+    const xml = new DOMParser().parseFromString(txt,'text/xml');
+    if(fmt==='text/xml')
+      return [...xml.querySelectorAll('FIELDS')].map(f=>Object.fromEntries([...f.attributes].map(a=>[a.name,a.value])));
+    // GML: hver feature er et element som har bare-tekst-barn (egenskaper)
+    const grab = re => { const out=[];
+      xml.querySelectorAll('*').forEach(el=>{
+        const kids=[...el.children];
+        if(!kids.length || !re.test(el.localName) || /_layer$|Collection|member/i.test(el.localName)) return;
+        const props={};
+        kids.forEach(k=>{ if(!k.children.length && k.textContent.trim() && k.prefix!=='gml') props[k.localName]=k.textContent.trim(); });
+        if(Object.keys(props).length){ props._type = el.localName.replace(/_feature$/,''); out.push(props); }
+      }); return out; };
+    const f = grab(/_feature$/);
+    return f.length ? f : grab(/^[A-Z]/);
+  });
+}
+const num = v => { if(v==null) return null; const n=parseFloat(String(v).replace(',','.')); return isFinite(n)?n:null; };
+function pick(objs, re, skip){
+  for(const o of objs) for(const [k,v] of Object.entries(o))
+    if(re.test(k) && !(skip&&skip.test(k)) && v!=='' && v!=='Null' && v!=null) return v;
+  return null;
+}
+async function onTap(e){
+  sheet.classList.add('open');
+  if(marker) map.removeLayer(marker);
+  marker = L.circleMarker(e.latlng,{radius:7,color:'#fff',weight:2,fillColor:'#0b6fa4',fillOpacity:1}).addTo(map);
+  body.innerHTML = `<h2>${t('loading')}</h2>`;
+  try{
+    const ls = [...new Set([...(lakeLayers||[]),...(depthLayers||[])])];
+    if(!navigator.onLine) throw new Error('offline');
+    let feats = [], kind = 'lake';
+    try{ feats = await featureInfo(e.latlng, ls.length?ls:['0']); }catch{}
+    if(!feats.length && seaOn){
+      feats = await featureInfo(e.latlng, SEA_INFO_LAYERS, SEA_URL, 'application/vnd.ogc.gml');
+      kind = 'sea';
+    }
+    lastInfo = {feats, latlng:e.latlng, kind};
+    store.set('lastInfo', lastInfo);
+    renderInfo(lastInfo);
+  }catch(err){
+    body.innerHTML = `<h2 class="warn">${t('fiErr')}</h2>`;
+  }
+}
+map.on('click', onTap);
+
+function renderInfo({feats,latlng,kind}){
+  if(!feats || !feats.length){ body.innerHTML = `<h2>${t('noLake')}</h2><div class="sub">${t('noLakeSub')}</div>`; return; }
+  if(kind==='sea') return renderSea(feats,latlng);
+  const name  = pick(feats,/^(navn|name|innsjonavn|vatnnavn)$/i) || pick(feats,/navn/i) || t('lake');
+  const maxD  = num(pick(feats,/maks.*dyp|max.*dep|dyp.*maks/i));
+  const meanD = num(pick(feats,/middel.*dyp|mean.*dep|gj.*dyp/i));
+  const area  = num(pick(feats,/areal|area/i,/ID|kode/i));
+  const elev  = num(pick(feats,/h(ø|o|oe)yde|moh|elev/i));
+  const vol   = num(pick(feats,/volum/i));
+  const year  = pick(feats,/(m(å|aa|a)le).*(år|aar|ar)|year|dato/i);
+  const contour = num(pick(feats,/^(dybde|dyp|depth|kote|hoyde|høyde)(_?m)?$/i));
+  const lakeNo = pick(feats,/l(ø|o)penr|vatnlnr|innsjo.?nr/i);
+  const hasDepth = maxD!=null || meanD!=null || contour!=null;
+  const fmt = (v,u,d=1)=> v==null?'–':`${v.toLocaleString(lang==='no'?'nb-NO':'en-GB',{maximumFractionDigits:d})} ${u}`;
+  const areaKm = area==null?null:(area>10000?area/1e6:area); // NVE oppgir km² eller m²
+  const all = feats.map(o=>Object.entries(o).filter(([k])=>!/shape|objectid|fid|globalid/i.test(k))
+              .map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('')).join('<tr><td colspan=2>&nbsp;</td></tr>');
+  body.innerHTML = `
+    <h2>${escapeHtml(name)}</h2>
+    <div class="sub">${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}${lakeNo?` · nr. ${escapeHtml(lakeNo)}`:''}</div>
+    ${hasDepth ? '' : `<div class="note warn"><b>${t('noDepth')}.</b> ${t('noDepthSub')}</div>`}
+    <div class="stats">
+      ${contour!=null?`<div class="stat" style="grid-column:1/-1"><span>${t('contour')}</span><b>${fmt(contour,'m',0)}</b></div>`:''}
+      <div class="stat"><span>${t('maxD')}</span><b>${fmt(maxD,'m')}</b></div>
+      <div class="stat"><span>${t('meanD')}</span><b>${fmt(meanD,'m')}</b></div>
+      <div class="stat"><span>${t('area')}</span><b>${fmt(areaKm,'km²',2)}</b></div>
+      <div class="stat"><span>${t('elev')}</span><b>${fmt(elev,'moh',0)}</b></div>
+      ${vol!=null?`<div class="stat"><span>${t('vol')}</span><b>${fmt(vol,'mill. m³')}</b></div>`:''}
+      ${year?`<div class="stat"><span>${t('year')}</span><b style="font-size:18px">${escapeHtml(year)}</b></div>`:''}
+    </div>
+    ${navigator.onLine?'':`<div class="note">${t('offline')}</div>`}
+    <details><summary>${t('all')}</summary><table>${all}</table></details>`;
+}
+function renderSea(feats,latlng){
+  const of = re => feats.filter(f=>re.test(f._type||''));
+  const area = of(/dybdelag|dybdeareal/i);
+  const minD = num(pick(area,/min.*dyb|dybde.*min|^mindybde$/i));
+  const maxD = num(pick(area,/maks.*dyb|max.*dyb|dybde.*maks/i));
+  const contour = num(pick(of(/kontur|kurve/i),/dybde|dyp|depth|verdi/i));
+  const shoal = of(/grunne|skjaer|skjær/i), dry = of(/torrfall|tørrfall/i);
+  const shoalD = num(pick(shoal,/dybde|dyp|depth/i));
+  const fmt = v => v==null?'–':`${v.toLocaleString(lang==='no'?'nb-NO':'en-GB',{maximumFractionDigits:1})} m`;
+  const range = minD!=null||maxD!=null ? `${fmt(minD)} – ${fmt(maxD)}` : '–';
+  const all = feats.map(o=>Object.entries(o).map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('')).join('<tr><td colspan=2>&nbsp;</td></tr>');
+  body.innerHTML = `
+    <h2>${t('sea')}</h2>
+    <div class="sub">${t('seaSub')} · ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}</div>
+    <div class="stats">
+      <div class="stat" style="grid-column:1/-1"><span>${t('seaRange')}</span><b>${range}</b></div>
+      ${contour!=null?`<div class="stat"><span>${t('contour')}</span><b>${fmt(contour)}</b></div>`:''}
+      ${shoal.length?`<div class="stat"><span>${t('shoal')}</span><b>${fmt(shoalD)}</b></div>`:''}
+      ${dry.length?`<div class="stat"><span>${t('dry')}</span><b>✓</b></div>`:''}
+    </div>
+    <details><summary>${t('all')}</summary><table>${all}</table></details>`;
+}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ---------- Søk (Kartverkets stedsnavn-API) ---------- */
+const qEl = document.getElementById('q'), resEl = document.getElementById('results');
+let qTimer;
+qEl.addEventListener('input',()=>{
+  clearTimeout(qTimer);
+  const s = qEl.value.trim();
+  if(s.length<2){resEl.style.display='none';return;}
+  qTimer = setTimeout(async()=>{
+    try{
+      const r = await fetch(`https://ws.geonorge.no/stedsnavn/v1/navn?sok=${encodeURIComponent(s)}*&fuzzy=true&treffPerSide=15&utkoordsys=4258`);
+      const j = await r.json();
+      const water = /innsjø|vann|tjern|vatn|pytt|dam|basseng/i;
+      const items = (j.navn||[]).sort((a,b)=>water.test(b.navneobjekttype)-water.test(a.navneobjekttype));
+      resEl.innerHTML = items.map(n=>{
+        const p = n.representasjonspunkt; const k = (n.kommuner||[])[0]?.kommunenavn||'';
+        return `<button data-lat="${p.nord}" data-lng="${p.øst}">${escapeHtml(n.skrivemåte)}<small>${escapeHtml(n.navneobjekttype)}${k?' · '+escapeHtml(k):''}</small></button>`;
+      }).join('') || `<button disabled>–</button>`;
+      resEl.style.display='block';
+    }catch{ resEl.style.display='none'; }
+  },300);
+});
+resEl.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-lat]'); if(!b) return;
+  const ll=[+b.dataset.lat,+b.dataset.lng];
+  map.setView(ll,14); resEl.style.display='none'; qEl.blur();
+  setTimeout(()=>onTap({latlng:L.latLng(ll)}),600);
+});
+map.on('click',()=>{resEl.style.display='none';qEl.blur();});
+
+/* ---------- Knapper ---------- */
+const layerBtn = document.getElementById('layerBtn');
+layerBtn.classList.toggle('on',store.get('depthOn',true));
+layerBtn.onclick = ()=>{
+  const on = !map.hasLayer(depth); on?depth.addTo(map):map.removeLayer(depth);
+  layerBtn.classList.toggle('on',on); store.set('depthOn',on); applySea();
+};
+document.querySelectorAll('#seaSeg button').forEach(b=>b.onclick=()=>{ seaOn=b.dataset.s==='1'; store.set('seaOn',seaOn); applySea(); });
+let me=null, watching=null;
+document.getElementById('locBtn').onclick = function(){
+  if(watching!==null){ navigator.geolocation.clearWatch(watching); watching=null; this.classList.remove('on'); if(me){map.removeLayer(me);me=null;} return; }
+  this.classList.add('on'); let first=true;
+  watching = navigator.geolocation.watchPosition(p=>{
+    const ll=[p.coords.latitude,p.coords.longitude];
+    if(!me) me=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18]})}).addTo(map); else me.setLatLng(ll);
+    if(first){map.setView(ll,Math.max(map.getZoom(),14));first=false;}
+  },()=>{toast(t('locErr'));this.classList.remove('on');watching=null;},{enableHighAccuracy:true,maximumAge:5000});
+};
+
+const panel = document.getElementById('panel');
+document.getElementById('settingsBtn').onclick = ()=>panel.classList.add('open');
+document.getElementById('closePanel').onclick = ()=>panel.classList.remove('open');
+panel.onclick = e=>{ if(e.target===panel) panel.classList.remove('open'); };
+document.querySelectorAll('#langSeg button').forEach(b=>b.onclick=()=>{lang=b.dataset.l;store.set('lang',lang);applyLang();});
+function setBase(k){ map.removeLayer(BASES[baseKey]); baseKey=k; BASES[k].addTo(map); BASES[k].bringToBack(); store.set('base',k);
+  document.querySelectorAll('#baseSeg button').forEach(b=>b.classList.toggle('on',b.dataset.b===k)); }
+document.querySelectorAll('#baseSeg button').forEach(b=>b.onclick=()=>setBase(b.dataset.b));
+setBase(baseKey);
+const op = document.getElementById('opacity');
+op.value = store.get('opacity',90);
+op.oninput = ()=>{ depth.setOpacity(op.value/100); sea.setOpacity(op.value/100); store.set('opacity',+op.value); };
+
+/* ---------- Offline-lagring ---------- */
+// Bygger samme flis-adresser som kartet bruker. Service workeren lagrer dem.
+const R = 20037508.342789244;
+function wmsTile(url, layers, x, y, z){
+  const s = 2*R/Math.pow(2,z), minx = -R + x*s, maxy = R - y*s;
+  const q = new URLSearchParams({service:'WMS',request:'GetMap',layers:layers.join(','),styles:'',format:'image/png',
+    transparent:'true',version:'1.3.0',width:256,height:256,crs:'EPSG:3857',bbox:[minx,maxy-s,minx+s,maxy].join(',')});
+  return url+'?'+q;
+}
+function tilesFor(bounds, zmin, zmax, opts){
+  const urls = [];
+  for(let z=zmin; z<=zmax; z++){
+    const nw = map.project(bounds.getNorthWest(),z).divideBy(256).floor(), se = map.project(bounds.getSouthEast(),z).divideBy(256).floor();
+    for(let x=nw.x;x<=se.x;x++) for(let y=nw.y;y<=se.y;y++){
+      for(const k of opts.bases) urls.push(L.Util.template(BASES[k]._url,{x,y,z,s:'a'}));
+      if(opts.depth && z>=8) urls.push(wmsTile(wmsUrl, depthLayers||['0'], x,y,z));
+      if(opts.sea && z>=8) urls.push(wmsTile(SEA_URL, SEA_LAYERS, x,y,z));
+    }
+  }
+  return urls;
+}
+async function saveTiles(urls, progEl){
+  if(navigator.storage && navigator.storage.persist) { try{ await navigator.storage.persist(); }catch{} }
+  const bar = progEl.firstElementChild; progEl.style.display='block'; bar.style.width='0';
+  const cache = await caches.open('dk-tiles'); let done=0, ok=0; const queue=[...urls];
+  async function worker(){ while(queue.length){ const u=queue.shift();
+    try{
+      const key = tileKey(u);
+      if(await cache.match(key)) ok++;
+      else { const r = await fetch(u,{mode:'cors'}).catch(()=>fetch(u,{mode:'no-cors'}));
+             if(r && (r.ok || r.type==='opaque')){ await cache.put(key,r); ok++; } }
+    }catch{}
+    bar.style.width=(++done/urls.length*100)+'%'; } }
+  await Promise.all(Array.from({length:6},worker));
+  setTimeout(()=>progEl.style.display='none',800);
+  return ok;
+}
+// Samme nøkkel-regel som i sw.js
+function tileKey(u){
+  const url = new URL(u, location.href);
+  if(![...url.searchParams.keys()].some(k=>k.toLowerCase()==='bbox')) return url.href;
+  const ps = [...url.searchParams.entries()].map(([k,v])=>{
+    k=k.toLowerCase(); if(k==='bbox') v=v.split(',').map(n=>(+n).toFixed(1)).join(','); return [k,v.toLowerCase()]; }).sort();
+  return url.origin+url.pathname+'?'+ps.map(([k,v])=>k+'='+v).join('&');
+}
+document.getElementById('dlBtn').onclick = async()=>{
+  if(!map.hasLayer(depth)){ depth.addTo(map); layerBtn.classList.add('on'); store.set('depthOn',true); applySea(); }
+  const z0 = map.getZoom();
+  const urls = tilesFor(map.getBounds(), Math.max(z0-2,1), Math.min(z0+3,17),
+    {bases:[...new Set([baseKey,'topo'])], depth:true, sea:seaOn});
+  if(urls.length>4000){ toast(t('tooBig')); return; }
+  const ok = await saveTiles(urls, document.getElementById('prog'));
+  toast(t('saved').replace('{n}',ok));
+};
+document.getElementById('clearBtn').onclick = async()=>{ await caches.delete('dk-tiles'); store.set('overview',false); toast(t('cleared')); };
+
+/* ---------- Første oppstart: advarsel om nedlasting ---------- */
+const welcome = document.getElementById('welcome');
+function showNetInfo(){
+  const el = document.getElementById('netInfo'); if(!el) return;
+  const c = navigator.connection; const type = c && (c.type || '');
+  el.textContent = type==='wifi' || type==='ethernet' ? t('wifi') : (type==='cellular' || (c && c.saveData) ? t('cell') : '');
+}
+if(navigator.connection) navigator.connection.addEventListener?.('change',showNetInfo);
+if(!store.get('welcomed',false)) welcome.classList.add('open');
+document.getElementById('wClose').onclick = ()=>{ welcome.classList.remove('open'); store.set('welcomed',true); };
+document.getElementById('wOverview').onclick = async function(){
+  this.disabled = true;
+  const norway = L.latLngBounds([57.8,4.3],[71.3,31.3]);
+  const ok = await saveTiles(tilesFor(norway,3,9,{bases:['topo'],depth:false,sea:false}), document.getElementById('wProg'));
+  store.set('overview',true); store.set('welcomed',true);
+  toast(t('dlOverviewDone')+` (${ok})`);
+  this.disabled = false; welcome.classList.remove('open');
+};
+
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.style.display='block';
+  clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none',3000); }
+window.addEventListener('offline',()=>toast(t('offline')));
+
+lastInfo = store.get('lastInfo',null);
+if(lastInfo) lastInfo.latlng = L.latLng(lastInfo.latlng);
+applyLang();
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
