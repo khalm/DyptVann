@@ -20,7 +20,7 @@ Dybdekart for norske innsjøer – og saltvann hvis du vil – rett på telefone
 
 1. Gå til repoet på GitHub → **Settings** → **Pages**
 2. Under *Build and deployment*: velg **Deploy from a branch**, branch **main**, mappe **/ (root)**, trykk **Save**
-3. Etter et minutt eller to ligger appen på `https://khalm.github.io/DyptVann/`
+3. Etter et minutt eller to ligger appen på `https://khalm.github.io/VannDybde/`
 
 ## Installer på telefonen
 
