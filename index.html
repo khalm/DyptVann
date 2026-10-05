@@ -165,7 +165,7 @@
 
 <script src="leaflet/leaflet.js"></script>
 <script>
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 
 /* ---------- Tekster ---------- */
 const T = {
@@ -256,15 +256,25 @@ function fetchT(url, ms=12000, opts={}){
   const c = new AbortController(); const id = setTimeout(()=>c.abort(), ms);
   return fetch(url,{...opts, signal:c.signal}).finally(()=>clearTimeout(id));
 }
+// JSONP: ArcGIS-serveren støtter callback=, som omgår nettleserens CORS-sperre
+let _jp = 0;
+function jsonp(url, ms=12000){
+  return new Promise((resolve,reject)=>{
+    const cb = '__dv_cb' + (++_jp), sc = document.createElement('script');
+    const done = (err,val)=>{ clearTimeout(to); delete window[cb]; sc.remove(); err?reject(err):resolve(val); };
+    const to = setTimeout(()=>done(Object.assign(new Error('timeout'),{name:'AbortError'})), ms);
+    window[cb] = j => done(null,j);
+    sc.onerror = ()=>done(new Error('Fikk ikke kontakt med NVE'));
+    sc.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
+    document.head.appendChild(sc);
+  });
+}
 async function discover(){
   for(const url of NVE_HOSTS){
     try{
-      const r = await fetchT(url+'?f=json', 10000, {cache:'no-store'});
-      if(!r.ok) continue;
-      const j = await r.json();
+      const j = await jsonp(url+'?f=json', 10000);
       if(!j.layers) continue;
-      const leaf = j.layers.filter(l=>!l.subLayerIds);
-      const d = leaf.filter(l=>/batymetri|bathym|dybdekote|kote/i.test(l.name)).map(l=>l.id);
+      const d = j.layers.filter(l=>/batymetri|bathym|dybdekote|kote/i.test(l.name)).map(l=>l.id);
       nveUrl = url; store.set('nveUrl',url);
       if(d.length){ depthIds = d; store.set('depthIds',d); }
       return true;
@@ -324,9 +334,7 @@ async function identify(latlng){
   const q = new URLSearchParams({geometry:`${latlng.lng},${latlng.lat}`,geometryType:'esriGeometryPoint',sr:'4326',
     layers:'all',tolerance:'4',mapExtent:[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()].join(','),
     imageDisplay:`${size.x},${size.y},96`,returnGeometry:'false',f:'json'});
-  const r = await fetchT(nveUrl+'/identify?'+q);
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  const j = await r.json();
+  const j = await jsonp(nveUrl+'/identify?'+q);
   if(j.error) throw new Error(j.error.message||'NVE-feil');
   return (j.results||[]).map(x=>({...x.attributes, _type:x.layerName}));
 }
@@ -370,8 +378,8 @@ async function onTap(e){
     let feats = [], kind = 'lake', nveErr = null;
     try{ feats = await identify(e.latlng); }catch(err){ nveErr = err; }
     if(!feats.length && seaOn){
-      feats = await featureInfo(e.latlng, SEA_INFO_LAYERS, SEA_URL, 'application/vnd.ogc.gml');
-      kind = 'sea';
+      try{ feats = await featureInfo(e.latlng, SEA_INFO_LAYERS, SEA_URL, 'application/vnd.ogc.gml'); kind = 'sea'; }
+      catch(err){ if(!nveErr) nveErr = err; }
     }
     if(!feats.length && nveErr) throw nveErr;
     lastInfo = {feats, latlng:e.latlng, kind};
