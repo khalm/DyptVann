@@ -86,6 +86,11 @@
   .version{font-size:12px;color:var(--muted);text-align:center;margin-top:14px}
   .badge{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom) + 92px);z-index:999;background:var(--panel);
     color:var(--muted);font-size:11px;padding:3px 8px;border-radius:10px;box-shadow:var(--shadow)}
+  .install{position:fixed;left:12px;top:calc(env(safe-area-inset-top) + 66px);z-index:999;display:none;align-items:center;gap:6px;
+    border:0;border-radius:20px;padding:8px 14px;background:var(--accent);color:var(--accent-ink);font-weight:600;font-size:14px;
+    box-shadow:var(--shadow);cursor:pointer}
+  .install svg{width:18px;height:18px}
+  .install.show{display:flex}
   .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 70px);transform:translateX(-50%);z-index:1200;
     background:var(--deep);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;display:none;max-width:90vw;text-align:center}
   .progress{height:6px;background:var(--bg);border-radius:3px;margin-top:10px;overflow:hidden;display:none}
@@ -118,6 +123,7 @@
   </button>
 </div>
 
+<button class="install" id="installBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14"/></svg><span data-t="install"></span></button>
 <div class="badge" id="badge"></div>
 
 <div class="sheet" id="sheet">
@@ -139,6 +145,7 @@
     <div class="row"><label data-t="opacity"></label><input type="range" id="opacity" min="20" max="100" step="5"></div>
     <div class="row" style="display:block"><label data-t="legend"></label>
       <div class="legend" id="legend" style="margin-top:8px"></div></div>
+    <button class="btn" id="installBtn2" data-t="install" style="display:none"></button>
     <button class="btn" id="dlBtn" data-t="download"></button>
     <div class="note" data-t="downloadNote"></div>
     <div class="progress" id="prog"><div></div></div>
@@ -157,6 +164,7 @@
     <ol class="note" style="font-size:14px;padding-left:20px;margin:10px 0">
       <li data-t="wStep1"></li><li data-t="wStep2"></li><li data-t="wStep3"></li>
     </ol>
+    <button class="btn" id="installBtn3" data-t="installFirst" style="display:none"></button>
     <button class="btn" id="wOverview" data-t="wOverview"></button>
     <div class="progress" id="wProg"><div></div></div>
     <button class="btn ghost" id="wClose" data-t="wLater"></button>
@@ -164,11 +172,19 @@
   </div>
 </div>
 
+<div class="panel" id="howInstall">
+  <div class="card">
+    <h3 data-t="install"></h3>
+    <div class="note" style="font-size:15px;color:var(--ink)" id="howText"></div>
+    <button class="btn ghost" id="howClose" data-t="close"></button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="leaflet/leaflet.js"></script>
 <script>
-const VERSION = '1.2.1';
+const VERSION = '1.3.0';
 
 /* ---------- Tekster ---------- */
 const T = {
@@ -183,7 +199,7 @@ const T = {
     maxD:'Maks dyp',meanD:'Middeldyp',area:'Areal',elev:'Høyde',vol:'Volum',year:'Målt',contour:'Dybdekote her',
     all:'Alle data',offline:'Uten nett – viser lagrede data',fiErr:'Fikk ikke hentet data (ingen dekning?)',
     locErr:'Fant ikke posisjonen din',saved:'Lagret {n} kartfliser offline',tooBig:'Zoom inn mer før du lagrer (for stort område)',
-    cleared:'Offline-kart slettet',markStyle:'Markering av kartlagte innsjøer',mHatch:'Skravering',mDots:'Prikker',mBoth:'Begge',legVec:'Dybdekartlagt – dybdekurver vises i kartet',legPdf:'Dybdekartlagt – bare som PDF fra NVE',pdfOnly:'Denne innsjøen har bare et skannet dybdekart fra NVE, så kurvene vises ikke i kartet. Åpne PDF-en for å se det.',pdf:'Åpne NVEs dybdekart (PDF)',timeout:'Tjenesten svarte ikke i tide.',lake:'Innsjø',version:'Versjon',
+    cleared:'Offline-kart slettet',install:'Installer appen',installFirst:'Installer appen på telefonen',installed:'DyptVann er installert – finn den på startskjermen',howIos:'På iPhone: trykk på Del-knappen (firkant med pil opp) nederst i Safari, og velg «Legg til på Hjem-skjerm».',howOther:'Åpne nettleserens meny (⋮) og velg «Installer app» eller «Legg til på startskjermen». Fungerer best i Chrome.',markStyle:'Markering av kartlagte innsjøer',mHatch:'Skravering',mDots:'Prikker',mBoth:'Begge',legVec:'Dybdekartlagt – dybdekurver vises i kartet',legPdf:'Dybdekartlagt – bare som PDF fra NVE',pdfOnly:'Denne innsjøen har bare et skannet dybdekart fra NVE, så kurvene vises ikke i kartet. Åpne PDF-en for å se det.',pdf:'Åpne NVEs dybdekart (PDF)',timeout:'Tjenesten svarte ikke i tide.',lake:'Innsjø',version:'Versjon',
     seaToggle:'Vis dybde i saltvann',on:'På',off:'Av',seachart:'Sjøkart',sea:'Saltvann',seaSub:'Sjøkart-dybdedata fra Kartverket',
     seaDepth:'Dybde her',seaRange:'Dybdeintervall',shoal:'Grunne / skjær',dry:'Tørrfall',
     wTitle:'Før du drar ut: last ned kart',
@@ -205,7 +221,7 @@ const T = {
     maxD:'Max depth',meanD:'Mean depth',area:'Area',elev:'Elevation',vol:'Volume',year:'Surveyed',contour:'Depth contour here',
     all:'All data',offline:'Offline – showing saved data',fiErr:'Could not fetch data (no coverage?)',
     locErr:'Could not find your location',saved:'Saved {n} map tiles offline',tooBig:'Zoom in more before saving (area too large)',
-    cleared:'Offline maps deleted',markStyle:'How surveyed lakes are marked',mHatch:'Hatching',mDots:'Dots',mBoth:'Both',legVec:'Surveyed – depth contours shown on the map',legPdf:'Surveyed – PDF from NVE only',pdfOnly:'This lake only has a scanned depth map from NVE, so contours are not drawn on the map. Open the PDF to see it.',pdf:'Open NVE depth map (PDF)',timeout:'The service did not respond in time.',lake:'Lake',version:'Version',
+    cleared:'Offline maps deleted',install:'Install the app',installFirst:'Install the app on your phone',installed:'DyptVann is installed – find it on your home screen',howIos:'On iPhone: tap the Share button (square with an up arrow) in Safari and choose “Add to Home Screen”.',howOther:'Open the browser menu (⋮) and choose “Install app” or “Add to Home screen”. Works best in Chrome.',markStyle:'How surveyed lakes are marked',mHatch:'Hatching',mDots:'Dots',mBoth:'Both',legVec:'Surveyed – depth contours shown on the map',legPdf:'Surveyed – PDF from NVE only',pdfOnly:'This lake only has a scanned depth map from NVE, so contours are not drawn on the map. Open the PDF to see it.',pdf:'Open NVE depth map (PDF)',timeout:'The service did not respond in time.',lake:'Lake',version:'Version',
     seaToggle:'Show salt water depth',on:'On',off:'Off',seachart:'Nautical',sea:'Salt water',seaSub:'Nautical depth data from the Norwegian Mapping Authority',
     seaDepth:'Depth here',seaRange:'Depth range',shoal:'Shoal / rock',dry:'Dries at low tide',
     wTitle:'Before you head out: download maps',
@@ -714,6 +730,33 @@ window.addEventListener('offline',()=>toast(t('offline')));
 lastInfo = store.get('lastInfo',null);
 if(lastInfo) lastInfo.latlng = L.latLng(lastInfo.latlng);
 applyLang();
+
+/* ---------- Installer-knapp ---------- */
+let installEvt = null;
+const isStandalone = ()=> matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const installBtns = ['installBtn','installBtn2','installBtn3'].map(id=>document.getElementById(id));
+function updateInstall(){
+  const show = !isStandalone();
+  installBtns[0].classList.toggle('show', show);
+  installBtns[1].style.display = installBtns[2].style.display = show ? 'block' : 'none';
+}
+window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); installEvt = e; updateInstall(); });
+window.addEventListener('appinstalled', ()=>{ installEvt = null; toast(t('installed')); installBtns[0].classList.remove('show');
+  installBtns[1].style.display = installBtns[2].style.display = 'none'; });
+async function doInstall(){
+  if(installEvt){
+    installEvt.prompt();
+    const { outcome } = await installEvt.userChoice;
+    if(outcome === 'accepted'){ installEvt = null; installBtns[0].classList.remove('show'); }
+    return;
+  }
+  document.getElementById('howText').textContent = isIos ? t('howIos') : t('howOther');
+  document.getElementById('howInstall').classList.add('open');
+}
+installBtns.forEach(b=>b.onclick=doInstall);
+document.getElementById('howClose').onclick = ()=>document.getElementById('howInstall').classList.remove('open');
+updateInstall();
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
