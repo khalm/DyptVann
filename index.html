@@ -168,7 +168,7 @@
 
 <script src="leaflet/leaflet.js"></script>
 <script>
-const VERSION = '1.2.0';
+const VERSION = '1.2.1';
 
 /* ---------- Tekster ---------- */
 const T = {
@@ -390,13 +390,9 @@ function drawSurveyed(){
 function updateSurveyed(){
   const show = map.hasLayer(depth) && map.getZoom() < SURVEY_ZOOM;
   if(show){
-    // Skravering: små innsjøer (under ~12 px) får i tillegg en prikk så de ikke forsvinner
-    const z = map.getZoom();
+    // Prikker vises bare når brukeren har valgt «Prikker» eller «Begge»
     for(const it of surveyItems){
-      if(!it.pg){ if(!surveyed.hasLayer(it.m)) surveyed.addLayer(it.m); continue; }
-      const b = it.bounds, a = map.project(b.getNorthWest(),z), c = map.project(b.getSouthEast(),z);
-      const small = Math.max(c.x-a.x, c.y-a.y) < 12;
-      const want = markStyle!=='hatch' || small;
+      const want = markStyle!=='hatch';
       if(want && !surveyed.hasLayer(it.m)) surveyed.addLayer(it.m);
       if(!want && surveyed.hasLayer(it.m)) surveyed.removeLayer(it.m);
     }
