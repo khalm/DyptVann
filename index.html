@@ -132,6 +132,8 @@
       <div class="seg" id="langSeg"><button data-l="no">Norsk</button><button data-l="en">English</button></div></div>
     <div class="row"><label data-t="seaToggle"></label>
       <div class="seg" id="seaSeg"><button data-s="1" data-t="on"></button><button data-s="0" data-t="off"></button></div></div>
+    <div class="row" style="display:block"><label data-t="markStyle"></label>
+      <div class="seg" id="markSeg" style="margin-top:8px"><button data-m="hatch" data-t="mHatch"></button><button data-m="dots" data-t="mDots"></button><button data-m="both" data-t="mBoth"></button></div></div>
     <div class="row" style="display:block"><label data-t="basemap"></label>
       <div class="seg" id="baseSeg" style="margin-top:8px"><button data-b="topo" data-t="topo"></button><button data-b="gray" data-t="gray"></button><button data-b="sea" data-t="seachart"></button><button data-b="photo" data-t="photo"></button></div></div>
     <div class="row"><label data-t="opacity"></label><input type="range" id="opacity" min="20" max="100" step="5"></div>
@@ -166,7 +168,7 @@
 
 <script src="leaflet/leaflet.js"></script>
 <script>
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 /* ---------- Tekster ---------- */
 const T = {
@@ -175,13 +177,13 @@ const T = {
     downloadNote:'Lagrer bakgrunnskart og dybdekart for det du ser nå, så det virker uten dekning.',
     clear:'Slett offline-kart',close:'Lukk',
     about:'Dybdedata ferskvann: NVE (Innsjødatabasen, ca. 600 dybdekartlagte innsjøer). Dybdedata saltvann, kart og stedsnavn: Kartverket. Alt er gratis og åpne data. Ikke bruk appen til navigasjon.',
-    tapHint:'Trykk på en innsjø for å se dybde',tapSub:'Prikkene viser innsjøer med dybdekart: blå = dybdekurver i kartet, lilla = bare PDF. Zoom inn for å se kurvene, og trykk på vannet for detaljer.',
+    tapHint:'Trykk på en innsjø for å se dybde',tapSub:'Skraverte innsjøer har dybdekart: blå = dybdekurver i kartet, lilla = bare PDF. Zoom inn for å se kurvene, og trykk på vannet for detaljer.',
     loading:'Henter…',noLake:'Ingen innsjø her',noLakeSub:'Prøv å trykke midt ute på vannet.',
     noDepth:'Ikke dybdekartlagt',noDepthSub:'NVE har ikke dybdekart for denne innsjøen. Det finnes dessverre ingen andre gratis dybdedata for ferskvann.',
     maxD:'Maks dyp',meanD:'Middeldyp',area:'Areal',elev:'Høyde',vol:'Volum',year:'Målt',contour:'Dybdekote her',
     all:'Alle data',offline:'Uten nett – viser lagrede data',fiErr:'Fikk ikke hentet data (ingen dekning?)',
     locErr:'Fant ikke posisjonen din',saved:'Lagret {n} kartfliser offline',tooBig:'Zoom inn mer før du lagrer (for stort område)',
-    cleared:'Offline-kart slettet',legVec:'Dybdekartlagt – dybdekurver vises i kartet',legPdf:'Dybdekartlagt – bare som PDF fra NVE',pdfOnly:'Denne innsjøen har bare et skannet dybdekart fra NVE, så kurvene vises ikke i kartet. Åpne PDF-en for å se det.',pdf:'Åpne NVEs dybdekart (PDF)',timeout:'Tjenesten svarte ikke i tide.',lake:'Innsjø',version:'Versjon',
+    cleared:'Offline-kart slettet',markStyle:'Markering av kartlagte innsjøer',mHatch:'Skravering',mDots:'Prikker',mBoth:'Begge',legVec:'Dybdekartlagt – dybdekurver vises i kartet',legPdf:'Dybdekartlagt – bare som PDF fra NVE',pdfOnly:'Denne innsjøen har bare et skannet dybdekart fra NVE, så kurvene vises ikke i kartet. Åpne PDF-en for å se det.',pdf:'Åpne NVEs dybdekart (PDF)',timeout:'Tjenesten svarte ikke i tide.',lake:'Innsjø',version:'Versjon',
     seaToggle:'Vis dybde i saltvann',on:'På',off:'Av',seachart:'Sjøkart',sea:'Saltvann',seaSub:'Sjøkart-dybdedata fra Kartverket',
     seaDepth:'Dybde her',seaRange:'Dybdeintervall',shoal:'Grunne / skjær',dry:'Tørrfall',
     wTitle:'Før du drar ut: last ned kart',
@@ -197,13 +199,13 @@ const T = {
     downloadNote:'Saves base map and depth map for the current view so it works without coverage.',
     clear:'Delete offline maps',close:'Close',
     about:'Fresh water depth: NVE (Lake database, ~600 surveyed lakes). Salt water depth, maps and place names: Norwegian Mapping Authority. All free, open data. Not for navigation.',
-    tapHint:'Tap a lake to see its depth',tapSub:'Dots mark lakes with depth maps: blue = contours on the map, purple = PDF only. Zoom in to see the contours, and tap the water for details.',
+    tapHint:'Tap a lake to see its depth',tapSub:'Hatched lakes have depth maps: blue = contours on the map, purple = PDF only. Zoom in to see the contours, and tap the water for details.',
     loading:'Loading…',noLake:'No lake here',noLakeSub:'Try tapping out on the water.',
     noDepth:'Not surveyed',noDepthSub:'NVE has no depth map for this lake. Unfortunately there is no other free depth data for fresh water.',
     maxD:'Max depth',meanD:'Mean depth',area:'Area',elev:'Elevation',vol:'Volume',year:'Surveyed',contour:'Depth contour here',
     all:'All data',offline:'Offline – showing saved data',fiErr:'Could not fetch data (no coverage?)',
     locErr:'Could not find your location',saved:'Saved {n} map tiles offline',tooBig:'Zoom in more before saving (area too large)',
-    cleared:'Offline maps deleted',legVec:'Surveyed – depth contours shown on the map',legPdf:'Surveyed – PDF from NVE only',pdfOnly:'This lake only has a scanned depth map from NVE, so contours are not drawn on the map. Open the PDF to see it.',pdf:'Open NVE depth map (PDF)',timeout:'The service did not respond in time.',lake:'Lake',version:'Version',
+    cleared:'Offline maps deleted',markStyle:'How surveyed lakes are marked',mHatch:'Hatching',mDots:'Dots',mBoth:'Both',legVec:'Surveyed – depth contours shown on the map',legPdf:'Surveyed – PDF from NVE only',pdfOnly:'This lake only has a scanned depth map from NVE, so contours are not drawn on the map. Open the PDF to see it.',pdf:'Open NVE depth map (PDF)',timeout:'The service did not respond in time.',lake:'Lake',version:'Version',
     seaToggle:'Show salt water depth',on:'On',off:'Off',seachart:'Nautical',sea:'Salt water',seaSub:'Nautical depth data from the Norwegian Mapping Authority',
     seaDepth:'Depth here',seaRange:'Depth range',shoal:'Shoal / rock',dry:'Dries at low tide',
     wTitle:'Before you head out: download maps',
@@ -217,7 +219,7 @@ const T = {
 };
 const store = {get(k,d){try{const v=localStorage.getItem('dk_'+k);return v===null?d:JSON.parse(v)}catch{return d}},
                set(k,v){try{localStorage.setItem('dk_'+k,JSON.stringify(v))}catch{}}};
-let lang = store.get('lang', (navigator.language||'no').startsWith('en')?'en':'no');
+let lang = store.get('lang', 'no');
 const t = k => (T[lang][k] ?? k);
 function applyLang(){
   document.documentElement.lang = lang==='no'?'no':'en';
@@ -326,10 +328,11 @@ applySea();
 map.on('moveend',()=>{const c=map.getCenter();store.set('view',[c.lat,c.lng,map.getZoom()])});
 
 /* ---------- Kartlagte innsjøer (synlige når man er zoomet ut) ---------- */
-const SURVEY_ZOOM = 11;               // under dette: vis prikker, over: vis dybdekurvene
+const SURVEY_ZOOM = 12;               // under dette: markering, fra 12: NVE tegner dybdekurvene
 const canvasR = L.canvas({padding:0.3});
 const surveyed = L.layerGroup();
-let surveyList = store.get('surveyed', null);   // lagres for bruk uten nett
+let surveyList = store.get('surveyed2', null);  // lagres for bruk uten nett (med omriss)
+let markStyle = store.get('markStyle', 'hatch'); // 'hatch' = skravering, 'dots' = prikker, 'both'
 function ringCenter(rings){
   // midtpunkt av største ring (areal-vektet), godt nok til en prikk
   let best=null, bestA=0;
@@ -343,32 +346,61 @@ async function loadSurveyed(){
     const out=[]; let offset=0;
     for(let page=0; page<5; page++){
       const q = new URLSearchParams({where:'1=1',outFields:'innsjonavn,maksdyp_m,vatnlnr,digitaltprodukt',returnGeometry:'true',
-        outSR:'4326',maxAllowableOffset:'0.002',geometryPrecision:'5',resultOffset:String(offset),resultRecordCount:'1000',f:'json'});
+        outSR:'4326',maxAllowableOffset:'0.0004',geometryPrecision:'5',resultOffset:String(offset),resultRecordCount:'1000',f:'json'});
       const j = await jsonp(nveUrl+'/4/query?'+q, 20000);
       if(j.error) throw new Error(j.error.message);
       for(const f of (j.features||[])){
         const c = f.geometry && f.geometry.rings && ringCenter(f.geometry.rings); if(!c || !isFinite(c[0])) continue;
         const a = f.attributes||{};
-        out.push({n:a.innsjonavn||'', d:num(a.maksdyp_m), v:/vektor/i.test(a.digitaltprodukt||''), c:[+c[0].toFixed(5),+c[1].toFixed(5)]});
+        const rings = f.geometry.rings.map(r=>r.map(([x,y])=>[+y.toFixed(5),+x.toFixed(5)]));
+        out.push({n:a.innsjonavn||'', d:num(a.maksdyp_m), v:/vektor/i.test(a.digitaltprodukt||''), c:[+c[0].toFixed(5),+c[1].toFixed(5)], r:rings});
       }
       if(!j.exceededTransferLimit) break; offset += (j.features||[]).length;
     }
-    if(out.length){ surveyList = out; store.set('surveyed', out); drawSurveyed(); }
+    if(out.length){ surveyList = out; store.set('surveyed2', out); drawSurveyed(); }
   }catch(e){}
 }
+// Skraveringsmønster (diagonale streker) som fyll på kartets canvas
+function hatch(color){
+  const c=document.createElement('canvas'); c.width=c.height=8; const g=c.getContext('2d');
+  g.strokeStyle=color; g.lineWidth=1.6; g.beginPath();
+  g.moveTo(0,8); g.lineTo(8,0); g.moveTo(-2,2); g.lineTo(2,-2); g.moveTo(6,10); g.lineTo(10,6); g.stroke();
+  return g.createPattern(c,'repeat');
+}
+const HATCH = {v:hatch('#0b6fa4'), p:hatch('#7a5cc7')};
+let surveyItems = [];
 function drawSurveyed(){
-  surveyed.clearLayers(); if(!surveyList) return;
+  surveyed.clearLayers(); surveyItems = []; if(!surveyList) return;
   for(const l of surveyList){
-    const m = L.circleMarker(l.c,{renderer:canvasR,radius:6,weight:2,color:'#ffffff',
-      fillColor:l.v?'#0b6fa4':'#7a5cc7',fillOpacity:.95});
-    m.bindTooltip(`${escapeHtml(l.n)}${l.d!=null?` · ${l.d} m`:''}`,{direction:'top',offset:[0,-6]});
-    m.on('click',ev=>{ L.DomEvent.stop(ev); map.setView(l.c, Math.max(13,map.getZoom()+3)); setTimeout(()=>onTap({latlng:L.latLng(l.c)}),700); });
-    surveyed.addLayer(m);
+    const col = l.v?'#0b6fa4':'#7a5cc7';
+    const tip = `${escapeHtml(l.n)}${l.d!=null?` · ${l.d} m`:''}`;
+    const go = ev=>{ L.DomEvent.stop(ev); map.setView(l.c, Math.max(SURVEY_ZOOM+1,map.getZoom()+3)); setTimeout(()=>onTap({latlng:L.latLng(l.c)}),700); };
+    if((markStyle==='hatch'||markStyle==='both') && l.r){
+      const pg = L.polygon(l.r,{renderer:canvasR,color:col,weight:1.5,opacity:.9,fillColor:l.v?HATCH.v:HATCH.p,fillOpacity:.85});
+      pg.bindTooltip(tip,{sticky:true}); pg.on('click',go); surveyed.addLayer(pg);
+      var poly = pg;
+    } else var poly = null;
+    // prikker: alltid når valgt, og ellers bare der innsjøen er for liten til å synes skravert
+    const m = L.circleMarker(l.c,{renderer:canvasR,radius:6,weight:2,color:'#ffffff',fillColor:col,fillOpacity:.95});
+    m.bindTooltip(tip,{direction:'top',offset:[0,-6]}); m.on('click',go);
+    surveyItems.push({m, pg:poly, bounds: poly ? poly.getBounds() : null});
   }
   updateSurveyed();
 }
 function updateSurveyed(){
   const show = map.hasLayer(depth) && map.getZoom() < SURVEY_ZOOM;
+  if(show){
+    // Skravering: små innsjøer (under ~12 px) får i tillegg en prikk så de ikke forsvinner
+    const z = map.getZoom();
+    for(const it of surveyItems){
+      if(!it.pg){ if(!surveyed.hasLayer(it.m)) surveyed.addLayer(it.m); continue; }
+      const b = it.bounds, a = map.project(b.getNorthWest(),z), c = map.project(b.getSouthEast(),z);
+      const small = Math.max(c.x-a.x, c.y-a.y) < 12;
+      const want = markStyle!=='hatch' || small;
+      if(want && !surveyed.hasLayer(it.m)) surveyed.addLayer(it.m);
+      if(!want && surveyed.hasLayer(it.m)) surveyed.removeLayer(it.m);
+    }
+  }
   if(show && !map.hasLayer(surveyed)) surveyed.addTo(map);
   if(!show && map.hasLayer(surveyed)) map.removeLayer(surveyed);
 }
@@ -576,6 +608,9 @@ layerBtn.onclick = ()=>{
   const on = !map.hasLayer(depth); on?depth.addTo(map):map.removeLayer(depth);
   layerBtn.classList.toggle('on',on); store.set('depthOn',on); applySea(); updateSurveyed();
 };
+document.querySelectorAll('#markSeg button').forEach(b=>b.onclick=()=>{ markStyle=b.dataset.m; store.set('markStyle',markStyle);
+  document.querySelectorAll('#markSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m===markStyle)); drawSurveyed(); });
+document.querySelectorAll('#markSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m===markStyle));
 document.querySelectorAll('#seaSeg button').forEach(b=>b.onclick=()=>{ seaOn=b.dataset.s==='1'; store.set('seaOn',seaOn); applySea(); });
 let me=null, watching=null;
 document.getElementById('locBtn').onclick = function(){
