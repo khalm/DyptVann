@@ -1,4 +1,4 @@
-# Dypt Vann
+# VannDybde
 
 Dybdekart for norske innsjøer – og saltvann hvis du vil – rett på telefonen. Gratis, uten reklame, og virker uten internett for områder du har lagret.
 

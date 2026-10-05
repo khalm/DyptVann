@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Dypt Vann</title>
+<title>VannDybde</title>
 <meta name="theme-color" content="#0b3d5c">
 <meta name="description" content="Dybdekart for norske innsjøer og sjø – gratis, med offline-støtte.">
-<link rel="manifest" href="manifest.webmanifest?v=1.3.2">
+<link rel="manifest" href="manifest.webmanifest?v=1.3.3">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Dypt Vann">
-<meta name="application-name" content="Dypt Vann">
+<meta name="apple-mobile-web-app-title" content="VannDybde">
+<meta name="application-name" content="VannDybde">
 <link rel="stylesheet" href="leaflet/leaflet.css">
 <style>
   :root{
@@ -186,7 +186,7 @@
 
 <script src="leaflet/leaflet.js"></script>
 <script>
-const VERSION = '1.3.2';
+const VERSION = '1.3.3';
 
 /* ---------- Tekster ---------- */
 const T = {
@@ -201,11 +201,11 @@ const T = {
     maxD:'Maks dyp',meanD:'Middeldyp',area:'Areal',elev:'Høyde',vol:'Volum',year:'Målt',contour:'Dybdekote her',
     all:'Alle data',offline:'Uten nett – viser lagrede data',fiErr:'Fikk ikke hentet data (ingen dekning?)',
     locErr:'Fant ikke posisjonen din',saved:'Lagret {n} kartfliser offline',tooBig:'Zoom inn mer før du lagrer (for stort område)',
-    cleared:'Offline-kart slettet',install:'Installer appen',installFirst:'Installer appen på telefonen',installed:'Dypt Vann er installert – finn den på startskjermen',howIos:'På iPhone: trykk på Del-knappen (firkant med pil opp) nederst i Safari, og velg «Legg til på Hjem-skjerm».',howOther:'Åpne nettleserens meny (⋮) og velg «Installer app» eller «Legg til på startskjermen». Fungerer best i Chrome.',markStyle:'Markering av kartlagte innsjøer',mHatch:'Skravering',mDots:'Prikker',mBoth:'Begge',legVec:'Dybdekartlagt – dybdekurver vises i kartet',legPdf:'Dybdekartlagt – bare som PDF fra NVE',pdfOnly:'Denne innsjøen har bare et skannet dybdekart fra NVE, så kurvene vises ikke i kartet. Åpne PDF-en for å se det.',pdf:'Åpne NVEs dybdekart (PDF)',timeout:'Tjenesten svarte ikke i tide.',lake:'Innsjø',version:'Versjon',
+    cleared:'Offline-kart slettet',install:'Installer appen',installFirst:'Installer appen på telefonen',installed:'VannDybde er installert – finn den på startskjermen',howIos:'På iPhone: trykk på Del-knappen (firkant med pil opp) nederst i Safari, og velg «Legg til på Hjem-skjerm».',howOther:'Åpne nettleserens meny (⋮) og velg «Installer app» eller «Legg til på startskjermen». Fungerer best i Chrome.',markStyle:'Markering av kartlagte innsjøer',mHatch:'Skravering',mDots:'Prikker',mBoth:'Begge',legVec:'Dybdekartlagt – dybdekurver vises i kartet',legPdf:'Dybdekartlagt – bare som PDF fra NVE',pdfOnly:'Denne innsjøen har bare et skannet dybdekart fra NVE, så kurvene vises ikke i kartet. Åpne PDF-en for å se det.',pdf:'Åpne NVEs dybdekart (PDF)',timeout:'Tjenesten svarte ikke i tide.',lake:'Innsjø',version:'Versjon',
     seaToggle:'Vis dybde i saltvann',on:'På',off:'Av',seachart:'Sjøkart',sea:'Saltvann',seaSub:'Sjøkart-dybdedata fra Kartverket',
     seaDepth:'Dybde her',seaRange:'Dybdeintervall',shoal:'Grunne / skjær',dry:'Tørrfall',
     wTitle:'Før du drar ut: last ned kart',
-    wBody:'Dypt Vann virker uten internett, men kartene må lastes ned først. Selve appen er allerede lagret på telefonen nå.',
+    wBody:'VannDybde virker uten internett, men kartene må lastes ned først. Selve appen er allerede lagret på telefonen nå.',
     wStep1:'Last ned oversiktskartet nedenfor (anbefales på wifi, ca. 20–40 MB).',
     wStep2:'Zoom inn på vannet eller fjorden du skal til, åpne menyen og trykk «Lagre synlig område offline».',
     wStep3:'Gjenta for hvert område. Lagrede områder virker uten dekning.',
@@ -223,11 +223,11 @@ const T = {
     maxD:'Max depth',meanD:'Mean depth',area:'Area',elev:'Elevation',vol:'Volume',year:'Surveyed',contour:'Depth contour here',
     all:'All data',offline:'Offline – showing saved data',fiErr:'Could not fetch data (no coverage?)',
     locErr:'Could not find your location',saved:'Saved {n} map tiles offline',tooBig:'Zoom in more before saving (area too large)',
-    cleared:'Offline maps deleted',install:'Install the app',installFirst:'Install the app on your phone',installed:'Dypt Vann is installed – find it on your home screen',howIos:'On iPhone: tap the Share button (square with an up arrow) in Safari and choose “Add to Home Screen”.',howOther:'Open the browser menu (⋮) and choose “Install app” or “Add to Home screen”. Works best in Chrome.',markStyle:'How surveyed lakes are marked',mHatch:'Hatching',mDots:'Dots',mBoth:'Both',legVec:'Surveyed – depth contours shown on the map',legPdf:'Surveyed – PDF from NVE only',pdfOnly:'This lake only has a scanned depth map from NVE, so contours are not drawn on the map. Open the PDF to see it.',pdf:'Open NVE depth map (PDF)',timeout:'The service did not respond in time.',lake:'Lake',version:'Version',
+    cleared:'Offline maps deleted',install:'Install the app',installFirst:'Install the app on your phone',installed:'VannDybde is installed – find it on your home screen',howIos:'On iPhone: tap the Share button (square with an up arrow) in Safari and choose “Add to Home Screen”.',howOther:'Open the browser menu (⋮) and choose “Install app” or “Add to Home screen”. Works best in Chrome.',markStyle:'How surveyed lakes are marked',mHatch:'Hatching',mDots:'Dots',mBoth:'Both',legVec:'Surveyed – depth contours shown on the map',legPdf:'Surveyed – PDF from NVE only',pdfOnly:'This lake only has a scanned depth map from NVE, so contours are not drawn on the map. Open the PDF to see it.',pdf:'Open NVE depth map (PDF)',timeout:'The service did not respond in time.',lake:'Lake',version:'Version',
     seaToggle:'Show salt water depth',on:'On',off:'Off',seachart:'Nautical',sea:'Salt water',seaSub:'Nautical depth data from the Norwegian Mapping Authority',
     seaDepth:'Depth here',seaRange:'Depth range',shoal:'Shoal / rock',dry:'Dries at low tide',
     wTitle:'Before you head out: download maps',
-    wBody:'Dypt Vann works without internet, but the maps must be downloaded first. The app itself is already saved on your phone.',
+    wBody:'VannDybde works without internet, but the maps must be downloaded first. The app itself is already saved on your phone.',
     wStep1:'Download the overview map below (best on Wi-Fi, about 20–40 MB).',
     wStep2:'Zoom in on the lake or fjord you are going to, open the menu and tap “Save visible area offline”.',
     wStep3:'Repeat for each area. Saved areas work without coverage.',
@@ -245,10 +245,10 @@ function applyLang(){
   document.getElementById('q').placeholder = t('search');
   document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.l===lang));
   document.getElementById('ver').textContent = `${t('version')} ${VERSION}`;
-  document.getElementById('wVer').textContent = `Dypt Vann · ${t('version')} ${VERSION}`;
+  document.getElementById('wVer').textContent = `VannDybde · ${t('version')} ${VERSION}`;
   document.querySelectorAll('#seaSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.s==='1')===seaOn));
   showNetInfo();
-  document.getElementById('badge').textContent = `Dypt Vann v${VERSION}`;
+  document.getElementById('badge').textContent = `VannDybde v${VERSION}`;
   if(!lastInfo) showHint(); else renderInfo(lastInfo);
 }
 
