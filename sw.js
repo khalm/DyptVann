@@ -1,9 +1,9 @@
 // Dypt Vann service worker – gjør appen brukbar uten internett.
-const VERSION = '1.3.1';
+const VERSION = '1.3.2';
 const SHELL = 'dk-shell-' + VERSION;
 const TILES = 'dk-tiles';
 const SHELL_FILES = [
-  './', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
+  './', './index.html', './manifest.webmanifest?v=1.3.2', './icon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png',
   './leaflet/leaflet.css', './leaflet/leaflet.js',
   './leaflet/images/layers.png', './leaflet/images/layers-2x.png',
   './leaflet/images/marker-icon.png', './leaflet/images/marker-icon-2x.png', './leaflet/images/marker-shadow.png'
@@ -57,7 +57,8 @@ self.addEventListener('fetch', e => {
 
   // Appen selv: nett først (for oppdateringer), cache hvis offline.
   if (url.startsWith(self.location.origin)) {
-    e.respondWith(fetch(req).then(r => {
+    // no-cache: spør alltid serveren om nyeste versjon (GitHub Pages mellomlagrer i 10 min)
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(r => {
       if (r.ok) { const copy = r.clone(); caches.open(SHELL).then(c => c.put(req, copy)); }
       return r;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('./index.html'))));
