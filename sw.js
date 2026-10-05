@@ -1,5 +1,5 @@
 // DyptVann service worker – gjør appen brukbar uten internett.
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const SHELL = 'dk-shell-' + VERSION;
 const TILES = 'dk-tiles';
 const SHELL_FILES = [
